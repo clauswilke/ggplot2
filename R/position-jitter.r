@@ -73,9 +73,19 @@ PositionJitter <- ggproto("PositionJitter", Position,
   },
 
   compute_layer = function(data, params, panel) {
-    trans_x <- if (params$width > 0) function(x) jitter(x, amount = params$width)
-    trans_y <- if (params$height > 0) function(x) jitter(x, amount = params$height)
+    # Regardless of whether params$seed is set or not, we need to be
+    # able to repeatedly apply the exact same jitter, e.g. if we need
+    # to jitter aesthetics x, xmin, xmax. We do this by creating two
+    # random seeds and then using those in the transformation function
+    with_seed_null(params$seed, seeds <- sample.int(2^32-1, 2))
 
-    with_seed_null(params$seed, transform_position(data, trans_x, trans_y))
+    trans_x <- if (params$width > 0) function(x) {
+      withr::with_seed(seeds[1], jitter(x, amount = params$width))
+    }
+    trans_y <- if (params$height > 0) function(x) {
+      withr::with_seed(seeds[2], jitter(x, amount = params$height))
+    }
+
+    transform_position(data, trans_x, trans_y)
   }
 )
